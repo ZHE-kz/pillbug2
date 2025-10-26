@@ -1,2 +1,25 @@
-﻿import { getQuestions } from './sheets.ts'; import { getPlayer, savePlayer } from './db.ts'; const LINE_TOKEN = 'xo0eU32fmFl4QwYEwMAMrgf+NzuxN83BOexMxHdqkXfR3fTS8daebcGNO7MSP6uq+3467/rI3/GrBMufJZMC0YTCC2/r010XlrzKazsqbFmEy6zCtXTS00B2yasnsOZPwuVv/rR6YGfaNouizBS+ngdB04t89/1O/w1cDnyilFU='; function buildQuestionFlex(q){ return { type:'flex', altText:Q. , contents:{ type:'bubble', header:{ type:'box', layout:'vertical', contents:[{ type:'text', text:🐾 第章, weight:'bold', size:'lg' }] }, hero:{ type:'image', url:'https://i.imgur.com/0KFBHTB.png', size:'full', aspectMode:'cover' }, body:{ type:'box', layout:'vertical', spacing:'md', contents:[{ type:'text', text:q.story },{ type:'text', text:❓ , wrap:true }] }, footer:{ type:'box', layout:'vertical', spacing:'sm', contents:q.options.map((opt,i)=>({type:'button', action:{ type:'postback', label:String.fromCharCode(65+i)+'. '+opt, data:nswer:: }})) } } } export async function handleLineRequest(req){ const body=await req.json(); const event=body.events?.[0]; if(!event) return new Response('No event',{status:200}); const userId=event.source.userId||event.source.senderId; const player=getPlayer(userId); if(event.type==='message'&&event.message.type==='text'){ const text=event.message.text.toLowerCase(); if(/^(開始|start)$/i.test(text)){ player.qIndex=0; savePlayer(player); return pushFlex(userId,buildQuestionFlex(getQuestions()[player.qIndex])); } } if(event.type==='postback'){ const data=event.postback.data; if(data?.startsWith('answer:')){ const [_,gIndexStr,optIndexStr]=data.split(':'); const gIndex=Number(gIndexStr); const optIndex=Number(optIndexStr); const q=getQuestions()[gIndex]; const correct=optIndex===q.answer; if(correct) player.score+=10; const replyText=correct?✅ 答對！\n:✖ 答錯！正確答案：. \n\n; player.qIndex=gIndex+1; savePlayer(player); await pushText(userId,replyText); if(player.qIndex<getQuestions().length){ return pushFlex(userId,buildQuestionFlex(getQuestions()[player.qIndex])); }else{ return pushText(userId,🎉 恭喜完成所有題目！總分：); } } } return new Response('OK',{status:200}); } async function pushFlex(userId,flex){ await fetch('https://api.line.me/v2/bot/message/push',{method:'POST', headers:{'Content-Type':'application/json', Authorization:Bearer }, body:JSON.stringify({to:userId,messages:[flex]})}); return new Response('OK'); } async function pushText(userId,text){ await fetch('https://api.line.me/v2/bot/message/push',{method:'POST', headers:{'Content-Type':'application/json', Authorization:Bearer }, body:JSON.stringify({to:userId,messages:[{type:'text',text}]})}); }
+@"
+import { getQuestions } from './sheets.ts';
+import { getPlayer, savePlayer } from './db.ts';
 
+const LINE_TOKEN = 'xo0eU32fmFl4QwYEwMAMrgf+NzuxN83BOexMxHdqkXfR3fTS8daebcGNO7MSP6uq+3467/rI3/GrBMufJZMC0YTCC2/r010XlrzKazsqbFmEy6zCtXTS00B2yasnsOZPwuVv/rR6YGfaNouizBS+ngdB04t89/1O/w1cDnyilFU=';
+
+function buildQuestionFlex(q){
+  return {
+    type:'flex',
+    altText: `Q${q.qnum}. ${q.question}`,
+    contents: {
+      type:'bubble',
+      header: {
+        type:'box',
+        layout:'vertical',
+        contents:[{ type:'text', text:`🐾 第${q.chapter}章`, weight:'bold', size:'lg'}]
+      },
+      hero:{ type:'image', url:'https://i.imgur.com/0KFBHTB.png', size:'full', aspectMode:'cover'},
+      body:{ type:'box', layout:'vertical', spacing:'md', contents:[{type:'text', text:q.story},{type:'text', text:`❓ ${q.question}`, wrap:true}]},
+      footer:{ type:'box', layout:'vertical', spacing:'sm', contents:q.options.map((opt,i)=>({type:'button', action:{type:'postback', label:String.fromCharCode(65+i)+'. '+opt, data:`answer:${q.globalIndex}:${i}`}}))}
+    }
+  }
+}
+...
+"@ | Out-File -Encoding utf8 line.ts
